@@ -22,6 +22,13 @@ debate_prompt = PromptTemplate(
     template="[{language}] Agent argues {position} on {topic}: This is a mock argument for {position}."
 )
 
+# Placeholder function for Eleven Labs text-to-speech
+
+
+def generate_audio(text: str, voice_id: str) -> str:
+    # Mock audio generation (replace with actual Eleven Labs API call later)
+    return f"/audio/mock_{hash(text)}_{voice_id}.mp3"
+
 
 @app.get("/")
 async def root():
@@ -32,6 +39,7 @@ async def root():
 async def start_debate(input: DebateInput):
     # Simulate 4 turns (2 per agent)
     script = []
+    audio_urls = []
     for i in range(2):
         # Agent 1 turn
         agent1_response = debate_prompt.format(
@@ -41,6 +49,7 @@ async def start_debate(input: DebateInput):
         )
         script.append(
             f"Agent 1 ({input.agent1_llm}) Turn {i+1}: {agent1_response}")
+        audio_urls.append(generate_audio(agent1_response, "agent1_voice"))
 
         # Agent 2 turn
         agent2_response = debate_prompt.format(
@@ -50,8 +59,9 @@ async def start_debate(input: DebateInput):
         )
         script.append(
             f"Agent 2 ({input.agent2_llm}) Turn {i+1}: {agent2_response}")
+        audio_urls.append(generate_audio(agent2_response, "agent2_voice"))
 
     return {
         "script": script,
-        "audio_urls": []  # Placeholder for Eleven Labs
+        "audio_urls": audio_urls
     }
