@@ -140,7 +140,12 @@
                         ))}
                         <h2 className="text-xl font-semibold mt-4 mb-2">Audio URLs</h2>
                         {audioUrls.map((url, index) => (
-                            <p key={index} className="text-blue-500 underline mb-1">{url}</p>
+                            <div key={index} className="mb-2">
+                                <audio controls className="w-full">
+                                    <source src={url} type="audio/mpeg" />
+                                    Your browser does not support the audio element.
+                                </audio>
+                            </div>
                         ))}
                     </div>
                 </div>

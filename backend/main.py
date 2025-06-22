@@ -36,8 +36,8 @@ debate_prompt = PromptTemplate(
 
 
 def generate_audio(text: str, voice_id: str) -> str:
-    # Mock audio generation (replace with actual Eleven Labs API call later)
-    return f"/audio/mock_{hash(text)}_{voice_id}.mp3"
+    # Temporary placeholder returning sample audio paths
+    return "/audio/sample_agent1.mp3" if voice_id == "agent1_voice" else "/audio/sample_agent2.mp3"
 
 
 @app.get("/")
