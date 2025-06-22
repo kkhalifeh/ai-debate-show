@@ -29,6 +29,7 @@
             const [script, setScript] = React.useState([]);
             const [audioUrls, setAudioUrls] = React.useState([]);
             const [error, setError] = React.useState("");
+            const audioRefs = React.useRef([]);
 
             const handleChange = (e) => {
                 setForm({ ...form, [e.target.name]: e.target.value });
@@ -37,6 +38,8 @@
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setError("");
+                setScript([]);
+                setAudioUrls([]);
                 try {
                     const response = await fetch("http://localhost:8000/start-debate", {
                         method: "POST",
@@ -46,11 +49,26 @@
                     if (!response.ok) throw new Error("Failed to start debate");
                     const data = await response.json();
                     setScript(data.script);
-                    setAudioUrls(data.audio_urls);
+                    setAudioUrls(data.audio_urls.map(url => `http://localhost:8000${url}`));
                 } catch (err) {
                     setError(err.message);
                 }
             };
+
+            React.useEffect(() => {
+                if (audioUrls.length > 0) {
+                    audioRefs.current = audioUrls.map((_, i) => audioRefs.current[i] || null);
+                    const playNext = (index) => {
+                        if (index < audioRefs.current.length - 1) {
+                            audioRefs.current[index].addEventListener('ended', () => {
+                                audioRefs.current[index + 1].play();
+                            }, { once: true });
+                        }
+                    };
+                    audioUrls.forEach((_, index) => playNext(index));
+                    audioRefs.current[0]?.play();
+                }
+            }, [audioUrls]);
 
             return (
                 <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
@@ -98,8 +116,10 @@
                                 onChange={handleChange}
                                 className="w-full border rounded p-2"
                             >
-                                <option value="gpt-3.5-turbo">GPT-3.5</option>
-                                <option value="gpt-4">GPT-4</option>
+                                <option value="gpt-3.5-turbo">OpenAI GPT-3.5</option>
+                                <option value="gpt-4">OpenAI GPT-4</option>
+                                <option value="grok">Grok</option>
+                                <option value="gemini">Gemini</option>
                             </select>
                         </div>
                         <div>
@@ -110,8 +130,10 @@
                                 onChange={handleChange}
                                 className="w-full border rounded p-2"
                             >
-                                <option value="gpt-3.5-turbo">GPT-3.5</option>
-                                <option value="gpt-4">GPT-4</option>
+                                <option value="gpt-3.5-turbo">OpenAI GPT-3.5</option>
+                                <option value="gpt-4">OpenAI GPT-4</option>
+                                <option value="grok">Grok</option>
+                                <option value="gemini">Gemini</option>
                             </select>
                         </div>
                         <div>
@@ -138,10 +160,14 @@
                         {script.map((line, index) => (
                             <p key={index} className="text-gray-700 mb-2">{line}</p>
                         ))}
-                        <h2 className="text-xl font-semibold mt-4 mb-2">Audio URLs</h2>
+                        <h2 className="text-xl font-semibold mt-4 mb-2">Debate Audio</h2>
                         {audioUrls.map((url, index) => (
                             <div key={index} className="mb-2">
-                                <audio controls className="w-full">
+                                <audio
+                                    ref={el => audioRefs.current[index] = el}
+                                    controls
+                                    className="w-full"
+                                >
                                     <source src={url} type="audio/mpeg" />
                                     Your browser does not support the audio element.
                                 </audio>
