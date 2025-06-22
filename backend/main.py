@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
+from openai import OpenAI
 import os
 import requests
 import uuid
@@ -43,41 +44,125 @@ class DebateInput(BaseModel):
     agent1_llm: str
     agent2_llm: str
     language: str
+    turns_per_agent: int
+    voice_provider: str
+    min_words: int
+    max_words: int
+    debate_intensity: str = "heated"  # mild, heated, explosive
+    use_personas: bool = True
+    use_emotional_language: bool = True
+    use_debate_tactics: bool = True
+
+# Define prompt templates for customizable heated debate
 
 
-# Define prompt template for debate arguments
-debate_prompt = PromptTemplate(
-    input_variables=["topic", "position", "language"],
-    template="In {language}, argue the position '{position}' on the topic '{topic}' in a concise, persuasive manner (100-150 words)."
-)
-
-# Eleven Labs audio generation
-
-
-def generate_audio(text: str, voice_id: str) -> str:
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-    headers = {
-        "xi-api-key": ELEVENLABS_API_KEY,
-        "Content-Type": "application/json"
+def get_opening_prompt(min_words: int, max_words: int, debate_config):
+    # Build intensity language
+    intensity_map = {
+        "mild": "civilly discuss and argue",
+        "heated": "passionately and assertively argue",
+        "explosive": "AGGRESSIVELY and FIERCELY argue"
     }
-    data = {
-        "text": text,
-        "model_id": "eleven_monolingual_v1",
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.75
-        }
-    }
-    response = requests.post(url, json=data, headers=headers)
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to generate audio: {response.text}")
+    intensity_phrase = intensity_map.get(
+        debate_config.debate_intensity, "argue")
 
-    # Save audio to temporary file
+    # Build persona instructions
+    persona_text = ""
+    if debate_config.use_personas:
+        persona_text = "You are a passionate expert who gets fired up about this topic. "
+
+    # Build emotional language instructions
+    emotional_text = ""
+    if debate_config.use_emotional_language:
+        emotional_text = "Show strong conviction and don't hold back your emotions. "
+
+    # Build debate tactics instructions
+    tactics_text = ""
+    if debate_config.use_debate_tactics:
+        tactics_text = "Use rhetorical questions, challenge assumptions, and demand evidence. "
+
+    template = f"In {{language}}, {persona_text}{emotional_text}You are in a debate. {intensity_phrase.upper()} the position '{{position}}' on the topic '{{topic}}'. {tactics_text}Be confident and use strong language. ({min_words}-{max_words} words)."
+
+    return PromptTemplate(
+        input_variables=["topic", "position", "language"],
+        template=template
+    )
+
+
+def get_rebuttal_prompt(min_words: int, max_words: int, debate_config):
+    # Build intensity language for rebuttals
+    intensity_map = {
+        "mild": "respectfully counter their argument",
+        "heated": "AGGRESSIVELY counter their argument",
+        "explosive": "DEMOLISH their argument with FURY"
+    }
+    intensity_phrase = intensity_map.get(
+        debate_config.debate_intensity, "counter their argument")
+
+    # Build persona instructions
+    persona_text = ""
+    if debate_config.use_personas:
+        persona_text = "You are a passionate expert who gets fired up about this topic. "
+
+    # Build emotional language instructions
+    emotional_text = ""
+    if debate_config.use_emotional_language:
+        emotional_text = "Express frustration with your opponent's weak arguments. Show that you're getting more heated as the debate continues. "
+
+    # Build debate tactics instructions
+    tactics_text = ""
+    if debate_config.use_debate_tactics:
+        tactics_text = "Use rhetorical questions, challenge their sources, demand evidence, and point out logical fallacies. "
+
+    template = f"In {{language}}, {persona_text}{emotional_text}Your opponent just said: '{{opponent_argument}}'. {intensity_phrase.upper()} while defending your position '{{position}}' on '{{topic}}'. {tactics_text}Be confrontational but professional. ({min_words}-{max_words} words)."
+
+    return PromptTemplate(
+        input_variables=["topic", "position", "language", "opponent_argument"],
+        template=template
+    )
+
+# Audio generation
+
+
+def generate_audio(text: str, voice_id: str, provider: str) -> str:
     filename = f"audio_{uuid.uuid4()}.mp3"
     filepath = os.path.join("/tmp", filename)
-    with open(filepath, "wb") as f:
-        f.write(response.content)
+
+    if provider == "eleven_labs":
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "xi-api-key": ELEVENLABS_API_KEY,
+            "Content-Type": "application/json"
+        }
+        data = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                "style": 0.0,
+                "use_speaker_boost": True
+            }
+        }
+        response = requests.post(url, json=data, headers=headers)
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=500, detail=f"Eleven Labs failed: {response.text}")
+        with open(filepath, "wb") as f:
+            f.write(response.content)
+
+    elif provider == "openai":
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        response = client.audio.speech.create(
+            model="tts-1",
+            voice=voice_id.lower(),  # OpenAI voices: alloy, echo, fable, onyx, nova, shimmer
+            input=text
+        )
+        response.stream_to_file(filepath)
+
+    else:
+        raise HTTPException(status_code=400, detail="Invalid voice provider")
+
     return f"/audio/{filename}"
 
 
@@ -102,41 +187,101 @@ async def start_debate(input: DebateInput):
         raise HTTPException(
             status_code=400, detail=f"Selected LLM not supported. Choose from {valid_llms}")
 
-    # Initialize LLMs
-    llm1 = ChatOpenAI(model=input.agent1_llm, api_key=OPENAI_API_KEY)
-    llm2 = ChatOpenAI(model=input.agent2_llm, api_key=OPENAI_API_KEY)
+    # Validate turns_per_agent
+    if input.turns_per_agent < 1 or input.turns_per_agent > 5:
+        raise HTTPException(
+            status_code=400, detail="Turns per agent must be between 1 and 5")
 
-    # Simulate 4 turns (2 per agent)
+    # Validate word count
+    if input.min_words < 50 or input.max_words > 500 or input.min_words > input.max_words:
+        raise HTTPException(
+            status_code=400, detail="Word count must be between 50-500, with min <= max")
+
+    # Validate voice provider
+    valid_providers = ["eleven_labs", "openai"]
+    if input.voice_provider not in valid_providers:
+        raise HTTPException(
+            status_code=400, detail=f"Voice provider not supported. Choose from {valid_providers}")
+
+    # Initialize LLMs
+    try:
+        llm1 = ChatOpenAI(model=input.agent1_llm, api_key=OPENAI_API_KEY)
+        llm2 = ChatOpenAI(model=input.agent2_llm, api_key=OPENAI_API_KEY)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to initialize LLM: {str(e)}")
+
+    # Get prompts with custom word count and debate configuration
+    opening_prompt = get_opening_prompt(
+        input.min_words, input.max_words, input)
+    rebuttal_prompt = get_rebuttal_prompt(
+        input.min_words, input.max_words, input)
+
+    # Generate debate turns
     script = []
     audio_urls = []
-    for i in range(2):
-        # Agent 1 turn - FIXED: Removed await and properly access content
-        agent1_response_obj = llm1.invoke(
-            debate_prompt.format(
-                topic=input.topic,
-                position=input.agent1_position,
-                language=input.language
-            )
-        )
-        agent1_response = agent1_response_obj.content
-        script.append(
-            f"Agent 1 ({input.agent1_llm}) Turn {i+1}: {agent1_response}")
-        audio_urls.append(generate_audio(
-            agent1_response, "ordbVDppyuwp96ZjvQOM"))  # Hakeem
+    agent1_last_response = ""
+    agent2_last_response = ""
 
-        # Agent 2 turn - FIXED: Removed await and properly access content
-        agent2_response_obj = llm2.invoke(
-            debate_prompt.format(
-                topic=input.topic,
-                position=input.agent2_position,
-                language=input.language
-            )
-        )
-        agent2_response = agent2_response_obj.content
-        script.append(
-            f"Agent 2 ({input.agent2_llm}) Turn {i+1}: {agent2_response}")
-        audio_urls.append(generate_audio(
-            agent2_response, "QRq5hPRAKf5ZhSlTBH6r"))  # Yahya
+    for i in range(input.turns_per_agent):
+        try:
+            # Agent 1 turn
+            if i == 0:
+                # First turn - opening statement
+                prompt_to_use = opening_prompt.format(
+                    topic=input.topic,
+                    position=input.agent1_position,
+                    language=input.language
+                )
+            else:
+                # Subsequent turns - rebuttal to agent 2's last response
+                prompt_to_use = rebuttal_prompt.format(
+                    topic=input.topic,
+                    position=input.agent1_position,
+                    language=input.language,
+                    opponent_argument=agent2_last_response
+                )
+
+            agent1_response_obj = llm1.invoke(prompt_to_use)
+            agent1_response = agent1_response_obj.content
+            agent1_last_response = agent1_response
+
+            script.append(
+                f"Agent 1 ({input.agent1_llm}) Turn {i+1}: {agent1_response}")
+            voice_id = "ordbVDppyuwp96ZjvQOM" if input.voice_provider == "eleven_labs" else "onyx"
+            audio_urls.append(generate_audio(
+                agent1_response, voice_id, input.voice_provider))
+
+            # Agent 2 turn
+            if i == 0:
+                # First turn - opening statement (but can reference agent 1's opening)
+                prompt_to_use = rebuttal_prompt.format(
+                    topic=input.topic,
+                    position=input.agent2_position,
+                    language=input.language,
+                    opponent_argument=agent1_response
+                )
+            else:
+                # Subsequent turns - rebuttal to agent 1's response
+                prompt_to_use = rebuttal_prompt.format(
+                    topic=input.topic,
+                    position=input.agent2_position,
+                    language=input.language,
+                    opponent_argument=agent1_response
+                )
+
+            agent2_response_obj = llm2.invoke(prompt_to_use)
+            agent2_response = agent2_response_obj.content
+            agent2_last_response = agent2_response
+
+            script.append(
+                f"Agent 2 ({input.agent2_llm}) Turn {i+1}: {agent2_response}")
+            voice_id = "QRq5hPRAKf5ZhSlTBH6r" if input.voice_provider == "eleven_labs" else "echo"
+            audio_urls.append(generate_audio(
+                agent2_response, voice_id, input.voice_provider))
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"LLM or audio generation failed: {str(e)}")
 
     return {
         "script": script,

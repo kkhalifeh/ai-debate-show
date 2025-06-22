@@ -24,15 +24,29 @@
                 agent2_position: "",
                 agent1_llm: "gpt-3.5-turbo",
                 agent2_llm: "gpt-4",
-                language: "English"
+                language: "English",
+                turns_per_agent: 2,
+                voice_provider: "eleven_labs",
+                min_words: 100,
+                max_words: 150,
+                debate_intensity: "heated",
+                use_personas: true,
+                use_emotional_language: true,
+                use_debate_tactics: true
             });
             const [script, setScript] = React.useState([]);
             const [audioUrls, setAudioUrls] = React.useState([]);
             const [error, setError] = React.useState("");
+            const [loading, setLoading] = React.useState(false);
             const audioRefs = React.useRef([]);
 
             const handleChange = (e) => {
-                setForm({ ...form, [e.target.name]: e.target.value });
+                const value = ["turns_per_agent", "min_words", "max_words"].includes(e.target.name)
+                    ? parseInt(e.target.value) || 1
+                    : e.target.type === "checkbox"
+                        ? e.target.checked
+                        : e.target.value;
+                setForm({ ...form, [e.target.name]: value });
             };
 
             const handleSubmit = async (e) => {
@@ -40,18 +54,21 @@
                 setError("");
                 setScript([]);
                 setAudioUrls([]);
+                setLoading(true);
                 try {
                     const response = await fetch("http://localhost:8000/start-debate", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(form)
                     });
-                    if (!response.ok) throw new Error("Failed to start debate");
+                    if (!response.ok) throw new Error(await response.text());
                     const data = await response.json();
                     setScript(data.script);
                     setAudioUrls(data.audio_urls.map(url => `http://localhost:8000${url}`));
                 } catch (err) {
                     setError(err.message);
+                } finally {
+                    setLoading(false);
                 }
             };
 
@@ -71,109 +88,290 @@
             }, [audioUrls]);
 
             return (
-                <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
-                    <h1 className="text-2xl font-bold mb-4">AI Debate Talk Show</h1>
-                    {error && <p className="text-red-500 mb-4">{error}</p>}
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium">Topic</label>
-                            <input
-                                type="text"
-                                name="topic"
-                                value={form.topic}
-                                onChange={handleChange}
-                                className="w-full border rounded p-2"
-                                placeholder="e.g., Simulation Theory"
-                            />
+                <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+                    <h1 className="text-3xl font-bold mb-6 text-center">🔥 AI Debate Talk Show 🔥</h1>
+                    {error && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded">{error}</p>}
+                    {loading && (
+                        <div className="flex justify-center mb-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                            <span className="ml-2">Generating heated debate...</span>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium">Agent 1 Position</label>
-                            <input
-                                type="text"
-                                name="agent1_position"
-                                value={form.agent1_position}
-                                onChange={handleChange}
-                                className="w-full border rounded p-2"
-                                placeholder="e.g., We live in a simulation"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Agent 2 Position</label>
-                            <input
-                                type="text"
-                                name="agent2_position"
-                                value={form.agent2_position}
-                                onChange={handleChange}
-                                className="w-full border rounded p-2"
-                                placeholder="e.g., We do not live in a simulation"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Agent 1 LLM</label>
-                            <select
-                                name="agent1_llm"
-                                value={form.agent1_llm}
-                                onChange={handleChange}
-                                className="w-full border rounded p-2"
-                            >
-                                <option value="gpt-3.5-turbo">OpenAI GPT-3.5</option>
-                                <option value="gpt-4">OpenAI GPT-4</option>
-                                <option value="grok">Grok</option>
-                                <option value="gemini">Gemini</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Agent 2 LLM</label>
-                            <select
-                                name="agent2_llm"
-                                value={form.agent2_llm}
-                                onChange={handleChange}
-                                className="w-full border rounded p-2"
-                            >
-                                <option value="gpt-3.5-turbo">OpenAI GPT-3.5</option>
-                                <option value="gpt-4">OpenAI GPT-4</option>
-                                <option value="grok">Grok</option>
-                                <option value="gemini">Gemini</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Language</label>
-                            <select
-                                name="language"
-                                value={form.language}
-                                onChange={handleChange}
-                                className="w-full border rounded p-2"
-                            >
-                                <option value="English">English</option>
-                                <option value="Spanish">Spanish</option>
-                            </select>
-                        </div>
-                        <button
-                            type="submit"
-                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                        >
-                            Start Debate
-                        </button>
-                    </form>
-                    <div className="mt-6">
-                        <h2 className="text-xl font-semibold mb-2">Debate Script</h2>
-                        {script.map((line, index) => (
-                            <p key={index} className="text-gray-700 mb-2">{line}</p>
-                        ))}
-                        <h2 className="text-xl font-semibold mt-4 mb-2">Debate Audio</h2>
-                        {audioUrls.map((url, index) => (
-                            <div key={index} className="mb-2">
-                                <audio
-                                    ref={el => audioRefs.current[index] = el}
-                                    controls
-                                    className="w-full"
-                                >
-                                    <source src={url} type="audio/mpeg" />
-                                    Your browser does not support the audio element.
-                                </audio>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Basic Settings */}
+                        <div className="space-y-4">
+                            <h2 className="text-xl font-semibold border-b pb-2">Basic Settings</h2>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Topic</label>
+                                <input
+                                    type="text"
+                                    name="topic"
+                                    value={form.topic}
+                                    onChange={handleChange}
+                                    className="w-full border rounded p-2"
+                                    placeholder="e.g., Simulation Theory"
+                                    required
+                                />
                             </div>
-                        ))}
-                    </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Agent 1 Position</label>
+                                <input
+                                    type="text"
+                                    name="agent1_position"
+                                    value={form.agent1_position}
+                                    onChange={handleChange}
+                                    className="w-full border rounded p-2"
+                                    placeholder="e.g., We live in a simulation"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Agent 2 Position</label>
+                                <input
+                                    type="text"
+                                    name="agent2_position"
+                                    value={form.agent2_position}
+                                    onChange={handleChange}
+                                    className="w-full border rounded p-2"
+                                    placeholder="e.g., We do not live in a simulation"
+                                    required
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Agent 1 LLM</label>
+                                    <select
+                                        name="agent1_llm"
+                                        value={form.agent1_llm}
+                                        onChange={handleChange}
+                                        className="w-full border rounded p-2"
+                                    >
+                                        <option value="gpt-3.5-turbo">GPT-3.5</option>
+                                        <option value="gpt-4">GPT-4</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Agent 2 LLM</label>
+                                    <select
+                                        name="agent2_llm"
+                                        value={form.agent2_llm}
+                                        onChange={handleChange}
+                                        className="w-full border rounded p-2"
+                                    >
+                                        <option value="gpt-3.5-turbo">GPT-3.5</option>
+                                        <option value="gpt-4">GPT-4</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Language</label>
+                                <select
+                                    name="language"
+                                    value={form.language}
+                                    onChange={handleChange}
+                                    className="w-full border rounded p-2"
+                                >
+                                    <option value="English">English</option>
+                                    <option value="Arabic">Arabic</option>
+                                    <option value="Spanish">Spanish</option>
+                                    <option value="French">French</option>
+                                    <option value="German">German</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Debate Configuration */}
+                        <div className="space-y-4">
+                            <h2 className="text-xl font-semibold border-b pb-2">🌶️ Debate Intensity</h2>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Debate Intensity Level</label>
+                                <div className="space-y-2">
+                                    <label className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="debate_intensity"
+                                            value="mild"
+                                            checked={form.debate_intensity === "mild"}
+                                            onChange={handleChange}
+                                            className="mr-2"
+                                        />
+                                        <span>😊 Mild - Civil discussion</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="debate_intensity"
+                                            value="heated"
+                                            checked={form.debate_intensity === "heated"}
+                                            onChange={handleChange}
+                                            className="mr-2"
+                                        />
+                                        <span>🔥 Heated - Passionate arguments</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="debate_intensity"
+                                            value="explosive"
+                                            checked={form.debate_intensity === "explosive"}
+                                            onChange={handleChange}
+                                            className="mr-2"
+                                        />
+                                        <span>💥 Explosive - Aggressive confrontation</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3 p-3 bg-gray-50 rounded">
+                                <h3 className="font-medium">Enhancement Options</h3>
+                                <label className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        name="use_personas"
+                                        checked={form.use_personas}
+                                        onChange={handleChange}
+                                        className="mr-2"
+                                    />
+                                    <span>🎭 Use Expert Personas - "Passionate experts who get fired up"</span>
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        name="use_emotional_language"
+                                        checked={form.use_emotional_language}
+                                        onChange={handleChange}
+                                        className="mr-2"
+                                    />
+                                    <span>😤 Emotional Language - Express frustration with weak arguments</span>
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        name="use_debate_tactics"
+                                        checked={form.use_debate_tactics}
+                                        onChange={handleChange}
+                                        className="mr-2"
+                                    />
+                                    <span>🎯 Debate Tactics - Rhetorical questions, challenge sources</span>
+                                </label>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Turns per Agent</label>
+                                    <input
+                                        type="number"
+                                        name="turns_per_agent"
+                                        value={form.turns_per_agent}
+                                        onChange={handleChange}
+                                        className="w-full border rounded p-2"
+                                        min="1"
+                                        max="5"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Voice Provider</label>
+                                    <select
+                                        name="voice_provider"
+                                        value={form.voice_provider}
+                                        onChange={handleChange}
+                                        className="w-full border rounded p-2"
+                                    >
+                                        <option value="eleven_labs">Eleven Labs</option>
+                                        <option value="openai">OpenAI</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Min Words</label>
+                                    <input
+                                        type="number"
+                                        name="min_words"
+                                        value={form.min_words}
+                                        onChange={handleChange}
+                                        className="w-full border rounded p-2"
+                                        min="50"
+                                        max="500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Max Words</label>
+                                    <input
+                                        type="number"
+                                        name="max_words"
+                                        value={form.max_words}
+                                        onChange={handleChange}
+                                        className="w-full border rounded p-2"
+                                        min="50"
+                                        max="500"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <button
+                                type="submit"
+                                className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white px-6 py-3 rounded-lg hover:from-red-600 hover:to-orange-600 font-semibold text-lg"
+                                disabled={loading}
+                            >
+                                🎤 Start {form.debate_intensity.charAt(0).toUpperCase() + form.debate_intensity.slice(1)} Debate!
+                            </button>
+                        </div>
+                    </form>
+
+                    {/* Results */}
+                    {(script.length > 0 || audioUrls.length > 0) && (
+                        <div className="mt-8">
+                            <h2 className="text-2xl font-semibold mb-4">🗣️ Debate Results</h2>
+
+                            {script.length > 0 && (
+                                <div className="mb-6">
+                                    <h3 className="text-xl font-semibold mb-3">📝 Debate Transcript</h3>
+                                    <div className="space-y-3">
+                                        {script.map((line, index) => (
+                                            <div
+                                                key={index}
+                                                className={`p-3 rounded-lg ${line.includes('Agent 1')
+                                                        ? 'bg-blue-50 border-l-4 border-blue-500'
+                                                        : 'bg-red-50 border-l-4 border-red-500'
+                                                    }`}
+                                            >
+                                                <p className="text-gray-700">{line}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {audioUrls.length > 0 && (
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-3">🎧 Debate Audio</h3>
+                                    <div className="space-y-2">
+                                        {audioUrls.map((url, index) => (
+                                            <div key={index} className="flex items-center space-x-3">
+                                                <span className="text-sm font-medium w-20">
+                                                    {index % 2 === 0 ? 'Agent 1' : 'Agent 2'}:
+                                                </span>
+                                                <audio
+                                                    ref={el => audioRefs.current[index] = el}
+                                                    controls
+                                                    className="flex-1"
+                                                >
+                                                    <source src={url} type="audio/mpeg" />
+                                                    Your browser does not support the audio element.
+                                                </audio>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             );
         };
