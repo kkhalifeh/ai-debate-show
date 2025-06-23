@@ -2,381 +2,885 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Talk Show</title>
-    <!-- Tailwind CSS CDN -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Debate Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React CDNs -->
-    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- Babel CDN for JSX -->
-    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'gradient-x': 'gradient-x 15s ease infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            },
+                        },
+                        'float': {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .gradient-bg {
+            background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c, #4facfe, #00f2fe);
+            background-size: 400% 400%;
+            animation: gradient-x 15s ease infinite;
+        }
+
+        .input-focus:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .hover-lift:hover {
+            transform: translateY(-2px);
+        }
+
+        .now-playing {
+            border: 2px solid #10b981;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .audio-finished {
+            opacity: 0.6;
+            background-color: #f3f4f6;
+        }
+    </style>
 </head>
 
-<body class="bg-gray-100 p-4">
-    <div id="root"></div>
-    <script type="text/babel">
-        const App = () => {
-            const [form, setForm] = React.useState({
-                topic: "",
-                agent1_position: "",
-                agent2_position: "",
-                agent1_llm: "gpt-3.5-turbo",
-                agent2_llm: "gpt-4",
-                language: "English",
-                turns_per_agent: 2,
-                voice_provider: "eleven_labs",
-                min_words: 100,
-                max_words: 150,
-                debate_intensity: "heated",
-                use_personas: true,
-                use_emotional_language: true,
-                use_debate_tactics: true
-            });
-            const [script, setScript] = React.useState([]);
-            const [audioUrls, setAudioUrls] = React.useState([]);
-            const [error, setError] = React.useState("");
-            const [loading, setLoading] = React.useState(false);
-            const audioRefs = React.useRef([]);
+<body class="gradient-bg min-h-screen">
+    <!-- Header -->
+    <div class="text-center py-8">
+        <h1 class="text-5xl font-black text-white mb-2 animate-float">
+            🎭 AI Debate Studio
+        </h1>
+        <p class="text-xl text-white/80 font-light">
+            Create engaging AI debates with intelligent moderation
+        </p>
+    </div>
 
-            const handleChange = (e) => {
-                const value = ["turns_per_agent", "min_words", "max_words"].includes(e.target.name)
-                    ? parseInt(e.target.value) || 1
-                    : e.target.type === "checkbox"
-                        ? e.target.checked
-                        : e.target.value;
-                setForm({ ...form, [e.target.name]: value });
-            };
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto px-4 pb-8">
+        <div class="glass rounded-3xl p-8 shadow-2xl">
 
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setError("");
-                setScript([]);
-                setAudioUrls([]);
-                setLoading(true);
-                try {
-                    const response = await fetch("http://localhost:8000/start-debate", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(form)
-                    });
-                    if (!response.ok) throw new Error(await response.text());
-                    const data = await response.json();
-                    setScript(data.script);
-                    setAudioUrls(data.audio_urls.map(url => `http://localhost:8000${url}`));
-                } catch (err) {
-                    setError(err.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
+            <!-- Topic Section -->
+            <div class="mb-8">
+                <div class="flex items-center mb-6">
+                    <div
+                        class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-4">
+                        <span class="text-2xl">🎯</span>
+                    </div>
+                    <h2 class="text-3xl font-bold text-gray-800">Debate Topic</h2>
+                </div>
 
-            React.useEffect(() => {
-                if (audioUrls.length > 0) {
-                    audioRefs.current = audioUrls.map((_, i) => audioRefs.current[i] || null);
-                    const playNext = (index) => {
-                        if (index < audioRefs.current.length - 1) {
-                            audioRefs.current[index].addEventListener('ended', () => {
-                                audioRefs.current[index + 1].play();
-                            }, { once: true });
-                        }
-                    };
-                    audioUrls.forEach((_, index) => playNext(index));
-                    audioRefs.current[0]?.play();
-                }
-            }, [audioUrls]);
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Topic</label>
+                        <input type="text" id="topic"
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-0 transition-all duration-300 input-focus"
+                            placeholder="Enter debate topic..." />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Language</label>
+                        <select id="language"
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-0 transition-all duration-300">
+                            <option value="English">🇺🇸 English</option>
+                            <option value="Arabic">🇸🇦 Arabic</option>
+                            <option value="Spanish">🇪🇸 Spanish</option>
+                            <option value="French">🇫🇷 French</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
 
-            return (
-                <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
-                    <h1 className="text-3xl font-bold mb-6 text-center">🔥 AI Debate Talk Show 🔥</h1>
-                    {error && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded">{error}</p>}
-                    {loading && (
-                        <div className="flex justify-center mb-4">
-                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-                            <span className="ml-2">Generating heated debate...</span>
+            <!-- Moderator Section -->
+            <div class="mb-8">
+                <div class="flex items-center mb-6">
+                    <div
+                        class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mr-4">
+                        <span class="text-2xl">🎤</span>
+                    </div>
+                    <h2 class="text-3xl font-bold text-gray-800">Moderator</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Name</label>
+                        <input type="text" id="moderator_name" value="Layla"
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-0 transition-all duration-300 input-focus" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Intervention
+                            Style</label>
+                        <select id="moderator_intervention"
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-0 transition-all duration-300">
+                            <option value="frequent">🔥 Frequent</option>
+                            <option value="occasional">⚡ Occasional</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4 space-y-2">
+                    <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Custom Prompt</label>
+                    <textarea id="moderator_prompt" rows="3"
+                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-0 transition-all duration-300 input-focus"
+                        placeholder="Moderator instructions...">In {language}, as a skilled moderator named {moderator_name}, open a debate on the topic '{topic}' between {agent1} and {agent2}. Introduce the topic briefly and ask {agent1} to begin.</textarea>
+                </div>
+            </div>
+
+            <!-- Agents Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Agent 1 -->
+                <div class="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 border border-red-100">
+                    <div class="flex items-center mb-4">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
+                            <span class="text-xl">👩</span>
                         </div>
-                    )}
+                        <h3 class="text-2xl font-bold text-red-700">Agent 1</h3>
+                    </div>
 
-                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Basic Settings */}
-                        <div className="space-y-4">
-                            <h2 className="text-xl font-semibold border-b pb-2">Basic Settings</h2>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Topic</label>
-                                <input
-                                    type="text"
-                                    name="topic"
-                                    value={form.topic}
-                                    onChange={handleChange}
-                                    className="w-full border rounded p-2"
-                                    placeholder="e.g., Simulation Theory"
-                                    required
-                                />
+                                <label class="text-xs font-semibold text-red-600 uppercase tracking-wide">Name</label>
+                                <input type="text" id="agent1_name" value="Dalia"
+                                    class="w-full px-3 py-2 rounded-lg border border-red-200 focus:border-red-400 focus:ring-0 transition-all duration-300" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Agent 1 Position</label>
-                                <input
-                                    type="text"
-                                    name="agent1_position"
-                                    value={form.agent1_position}
-                                    onChange={handleChange}
-                                    className="w-full border rounded p-2"
-                                    placeholder="e.g., We live in a simulation"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Agent 2 Position</label>
-                                <input
-                                    type="text"
-                                    name="agent2_position"
-                                    value={form.agent2_position}
-                                    onChange={handleChange}
-                                    className="w-full border rounded p-2"
-                                    placeholder="e.g., We do not live in a simulation"
-                                    required
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Agent 1 LLM</label>
-                                    <select
-                                        name="agent1_llm"
-                                        value={form.agent1_llm}
-                                        onChange={handleChange}
-                                        className="w-full border rounded p-2"
-                                    >
-                                        <option value="gpt-3.5-turbo">GPT-3.5</option>
-                                        <option value="gpt-4">GPT-4</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Agent 2 LLM</label>
-                                    <select
-                                        name="agent2_llm"
-                                        value={form.agent2_llm}
-                                        onChange={handleChange}
-                                        className="w-full border rounded p-2"
-                                    >
-                                        <option value="gpt-3.5-turbo">GPT-3.5</option>
-                                        <option value="gpt-4">GPT-4</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Language</label>
-                                <select
-                                    name="language"
-                                    value={form.language}
-                                    onChange={handleChange}
-                                    className="w-full border rounded p-2"
-                                >
-                                    <option value="English">English</option>
-                                    <option value="Arabic">Arabic</option>
-                                    <option value="Spanish">Spanish</option>
-                                    <option value="French">French</option>
-                                    <option value="German">German</option>
+                                <label class="text-xs font-semibold text-red-600 uppercase tracking-wide">AI
+                                    Model</label>
+                                <select id="agent1_llm"
+                                    class="w-full px-3 py-2 rounded-lg border border-red-200 focus:border-red-400 focus:ring-0 transition-all duration-300">
+                                    <option value="gpt-4">🧠 GPT-4</option>
+                                    <option value="gpt-3.5-turbo">⚡ GPT-3.5</option>
                                 </select>
                             </div>
                         </div>
 
-                        {/* Debate Configuration */}
-                        <div className="space-y-4">
-                            <h2 className="text-xl font-semibold border-b pb-2">🌶️ Debate Intensity</h2>
+                        <div>
+                            <label class="text-xs font-semibold text-red-600 uppercase tracking-wide">Position</label>
+                            <textarea id="agent1_position" rows="2"
+                                class="w-full px-3 py-2 rounded-lg border border-red-200 focus:border-red-400 focus:ring-0 transition-all duration-300"
+                                placeholder="What stance should this agent take?"></textarea>
+                        </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Debate Intensity Level</label>
-                                <div className="space-y-2">
-                                    <label className="flex items-center">
-                                        <input
-                                            type="radio"
-                                            name="debate_intensity"
-                                            value="mild"
-                                            checked={form.debate_intensity === "mild"}
-                                            onChange={handleChange}
-                                            className="mr-2"
-                                        />
-                                        <span>😊 Mild - Civil discussion</span>
-                                    </label>
-                                    <label className="flex items-center">
-                                        <input
-                                            type="radio"
-                                            name="debate_intensity"
-                                            value="heated"
-                                            checked={form.debate_intensity === "heated"}
-                                            onChange={handleChange}
-                                            className="mr-2"
-                                        />
-                                        <span>🔥 Heated - Passionate arguments</span>
-                                    </label>
-                                    <label className="flex items-center">
-                                        <input
-                                            type="radio"
-                                            name="debate_intensity"
-                                            value="explosive"
-                                            checked={form.debate_intensity === "explosive"}
-                                            onChange={handleChange}
-                                            className="mr-2"
-                                        />
-                                        <span>💥 Explosive - Aggressive confrontation</span>
-                                    </label>
-                                </div>
+                        <div>
+                            <label class="text-xs font-semibold text-red-600 uppercase tracking-wide">Prompt
+                                Template</label>
+                            <textarea id="agent1_prompt" rows="3"
+                                class="w-full px-3 py-2 rounded-lg border border-red-200 focus:border-red-400 focus:ring-0 transition-all duration-300">In {language}, respond as an expert defending the position '{position}' on the topic '{topic}'. Use a {tone} tone in your response. Address the opponent's argument: '{opponent_argument}'. Provide structured reasoning, evidence, and maintain a persuasive tone. Stay between {min_words} and {max_words} words.</textarea>
+                        </div>
+
+                        <!-- Voice Settings -->
+                        <div class="bg-white/50 rounded-lg p-3">
+                            <h4 class="text-sm font-bold text-red-700 mb-2">🎵 Voice Settings</h4>
+                            <div class="text-xs mb-2 text-red-600 font-medium">
+                                Note: Tone automatically adjusts voice parameters. Manual settings will override tone
+                                effects.
                             </div>
-
-                            <div className="space-y-3 p-3 bg-gray-50 rounded">
-                                <h3 className="font-medium">Enhancement Options</h3>
-                                <label className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        name="use_personas"
-                                        checked={form.use_personas}
-                                        onChange={handleChange}
-                                        className="mr-2"
-                                    />
-                                    <span>🎭 Use Expert Personas - "Passionate experts who get fired up"</span>
-                                </label>
-                                <label className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        name="use_emotional_language"
-                                        checked={form.use_emotional_language}
-                                        onChange={handleChange}
-                                        className="mr-2"
-                                    />
-                                    <span>😤 Emotional Language - Express frustration with weak arguments</span>
-                                </label>
-                                <label className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        name="use_debate_tactics"
-                                        checked={form.use_debate_tactics}
-                                        onChange={handleChange}
-                                        className="mr-2"
-                                    />
-                                    <span>🎯 Debate Tactics - Rhetorical questions, challenge sources</span>
-                                </label>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
+                            <div class="grid grid-cols-1 gap-3 text-xs">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Turns per Agent</label>
-                                    <input
-                                        type="number"
-                                        name="turns_per_agent"
-                                        value={form.turns_per_agent}
-                                        onChange={handleChange}
-                                        className="w-full border rounded p-2"
-                                        min="1"
-                                        max="5"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Voice Provider</label>
-                                    <select
-                                        name="voice_provider"
-                                        value={form.voice_provider}
-                                        onChange={handleChange}
-                                        className="w-full border rounded p-2"
-                                    >
-                                        <option value="eleven_labs">Eleven Labs</option>
-                                        <option value="openai">OpenAI</option>
+                                    <label class="text-red-600 font-medium">Tone (Primary Voice Control)</label>
+                                    <select id="agent1_tone"
+                                        class="w-full px-2 py-1 rounded border border-red-200 text-xs">
+                                        <option value="neutral">😐 Neutral</option>
+                                        <option value="assertive">💪 Assertive</option>
+                                        <option value="emotional">😢 Emotional</option>
+                                        <option value="dramatic">🎭 Dramatic</option>
                                     </select>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Min Words</label>
-                                    <input
-                                        type="number"
-                                        name="min_words"
-                                        value={form.min_words}
-                                        onChange={handleChange}
-                                        className="w-full border rounded p-2"
-                                        min="50"
-                                        max="500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Max Words</label>
-                                    <input
-                                        type="number"
-                                        name="max_words"
-                                        value={form.max_words}
-                                        onChange={handleChange}
-                                        className="w-full border rounded p-2"
-                                        min="50"
-                                        max="500"
-                                    />
-                                </div>
+                                <details class="cursor-pointer">
+                                    <summary class="text-red-600 font-medium text-xs mb-1">Advanced Voice Overrides
+                                    </summary>
+                                    <div class="grid grid-cols-2 gap-2 mt-2">
+                                        <div>
+                                            <label class="text-red-600 font-medium">Speed Override</label>
+                                            <input type="number" id="agent1_speed" value="1.0" step="0.1" min="0.5"
+                                                max="2.0"
+                                                class="w-full px-2 py-1 rounded border border-red-200 text-xs" />
+                                        </div>
+                                        <div>
+                                            <label class="text-red-600 font-medium">Stability Override</label>
+                                            <input type="number" id="agent1_stability" value="0.5" step="0.1" min="0"
+                                                max="1"
+                                                class="w-full px-2 py-1 rounded border border-red-200 text-xs" />
+                                        </div>
+                                        <div class="col-span-2">
+                                            <label class="text-red-600 font-medium">Similarity Override</label>
+                                            <input type="number" id="agent1_similarity" value="0.75" step="0.05" min="0"
+                                                max="1"
+                                                class="w-full px-2 py-1 rounded border border-red-200 text-xs" />
+                                        </div>
+                                    </div>
+                                </details>
                             </div>
                         </div>
-
-                        <div className="md:col-span-2">
-                            <button
-                                type="submit"
-                                className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white px-6 py-3 rounded-lg hover:from-red-600 hover:to-orange-600 font-semibold text-lg"
-                                disabled={loading}
-                            >
-                                🎤 Start {form.debate_intensity.charAt(0).toUpperCase() + form.debate_intensity.slice(1)} Debate!
-                            </button>
-                        </div>
-                    </form>
-
-                    {/* Results */}
-                    {(script.length > 0 || audioUrls.length > 0) && (
-                        <div className="mt-8">
-                            <h2 className="text-2xl font-semibold mb-4">🗣️ Debate Results</h2>
-
-                            {script.length > 0 && (
-                                <div className="mb-6">
-                                    <h3 className="text-xl font-semibold mb-3">📝 Debate Transcript</h3>
-                                    <div className="space-y-3">
-                                        {script.map((line, index) => (
-                                            <div
-                                                key={index}
-                                                className={`p-3 rounded-lg ${line.includes('Agent 1')
-                                                        ? 'bg-blue-50 border-l-4 border-blue-500'
-                                                        : 'bg-red-50 border-l-4 border-red-500'
-                                                    }`}
-                                            >
-                                                <p className="text-gray-700">{line}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {audioUrls.length > 0 && (
-                                <div>
-                                    <h3 className="text-xl font-semibold mb-3">🎧 Debate Audio</h3>
-                                    <div className="space-y-2">
-                                        {audioUrls.map((url, index) => (
-                                            <div key={index} className="flex items-center space-x-3">
-                                                <span className="text-sm font-medium w-20">
-                                                    {index % 2 === 0 ? 'Agent 1' : 'Agent 2'}:
-                                                </span>
-                                                <audio
-                                                    ref={el => audioRefs.current[index] = el}
-                                                    controls
-                                                    className="flex-1"
-                                                >
-                                                    <source src={url} type="audio/mpeg" />
-                                                    Your browser does not support the audio element.
-                                                </audio>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                    </div>
                 </div>
-            );
-        };
 
-        ReactDOM.render(<App />, document.getElementById("root"));
+                <!-- Agent 2 -->
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+                    <div class="flex items-center mb-4">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mr-3">
+                            <span class="text-xl">👨</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-blue-700">Agent 2</h3>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs font-semibold text-blue-600 uppercase tracking-wide">Name</label>
+                                <input type="text" id="agent2_name" value="Nabil"
+                                    class="w-full px-3 py-2 rounded-lg border border-blue-200 focus:border-blue-400 focus:ring-0 transition-all duration-300" />
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-blue-600 uppercase tracking-wide">AI
+                                    Model</label>
+                                <select id="agent2_llm"
+                                    class="w-full px-3 py-2 rounded-lg border border-blue-200 focus:border-blue-400 focus:ring-0 transition-all duration-300">
+                                    <option value="gpt-4">🧠 GPT-4</option>
+                                    <option value="gpt-3.5-turbo">⚡ GPT-3.5</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-blue-600 uppercase tracking-wide">Position</label>
+                            <textarea id="agent2_position" rows="2"
+                                class="w-full px-3 py-2 rounded-lg border border-blue-200 focus:border-blue-400 focus:ring-0 transition-all duration-300"
+                                placeholder="What stance should this agent take?"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-blue-600 uppercase tracking-wide">Prompt
+                                Template</label>
+                            <textarea id="agent2_prompt" rows="3"
+                                class="w-full px-3 py-2 rounded-lg border border-blue-200 focus:border-blue-400 focus:ring-0 transition-all duration-300">In {language}, respond as an expert defending the position '{position}' on the topic '{topic}'. Use a {tone} tone in your response. Address the opponent's argument: '{opponent_argument}'. Provide structured reasoning, evidence, and maintain a persuasive tone. Stay between {min_words} and {max_words} words.</textarea>
+                        </div>
+
+                        <!-- Voice Settings -->
+                        <div class="bg-white/50 rounded-lg p-3">
+                            <h4 class="text-sm font-bold text-blue-700 mb-2">🎵 Voice Settings</h4>
+                            <div class="text-xs mb-2 text-blue-600 font-medium">
+                                Note: Tone automatically adjusts voice parameters. Manual settings will override tone
+                                effects.
+                            </div>
+                            <div class="grid grid-cols-1 gap-3 text-xs">
+                                <div>
+                                    <label class="text-blue-600 font-medium">Tone (Primary Voice Control)</label>
+                                    <select id="agent2_tone"
+                                        class="w-full px-2 py-1 rounded border border-blue-200 text-xs">
+                                        <option value="neutral">😐 Neutral</option>
+                                        <option value="assertive">💪 Assertive</option>
+                                        <option value="emotional">😢 Emotional</option>
+                                        <option value="dramatic">🎭 Dramatic</option>
+                                    </select>
+                                </div>
+                                <details class="cursor-pointer">
+                                    <summary class="text-blue-600 font-medium text-xs mb-1">Advanced Voice Overrides
+                                    </summary>
+                                    <div class="grid grid-cols-2 gap-2 mt-2">
+                                        <div>
+                                            <label class="text-blue-600 font-medium">Speed Override</label>
+                                            <input type="number" id="agent2_speed" value="1.0" step="0.1" min="0.5"
+                                                max="2.0"
+                                                class="w-full px-2 py-1 rounded border border-blue-200 text-xs" />
+                                        </div>
+                                        <div>
+                                            <label class="text-blue-600 font-medium">Stability Override</label>
+                                            <input type="number" id="agent2_stability" value="0.5" step="0.1" min="0"
+                                                max="1"
+                                                class="w-full px-2 py-1 rounded border border-blue-200 text-xs" />
+                                        </div>
+                                        <div class="col-span-2">
+                                            <label class="text-blue-600 font-medium">Similarity Override</label>
+                                            <input type="number" id="agent2_similarity" value="0.75" step="0.05" min="0"
+                                                max="1"
+                                                class="w-full px-2 py-1 rounded border border-blue-200 text-xs" />
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div class="mb-8">
+                <div class="flex items-center mb-6">
+                    <div
+                        class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mr-4">
+                        <span class="text-2xl">⚙️</span>
+                    </div>
+                    <h2 class="text-3xl font-bold text-gray-800">Debate Settings</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Turns per
+                            Agent</label>
+                        <input type="number" id="turns" value="2" min="1" max="5"
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-0 transition-all duration-300 input-focus" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Voice
+                            Provider</label>
+                        <select id="voice_provider"
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-0 transition-all duration-300">
+                            <option value="openai">🤖 OpenAI</option>
+                            <option value="eleven_labs">🎯 Eleven Labs</option>
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Min Words</label>
+                        <input type="number" id="min_words" value="120"
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-0 transition-all duration-300 input-focus" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Max Words</label>
+                        <input type="number" id="max_words" value="250"
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-0 transition-all duration-300 input-focus" />
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="startDebate()"
+                            class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover-lift transform active:scale-95">
+                            🚀 Start Debate
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audio Controls -->
+            <div id="audio-controls" class="hidden mb-8">
+                <div class="flex items-center mb-4">
+                    <div
+                        class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mr-4">
+                        <span class="text-2xl">🎵</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800">Audio Controls</h2>
+                </div>
+                <div class="bg-white/50 rounded-xl p-4 flex gap-4 items-center">
+                    <button id="play-all-btn" onclick="playAllAudio()"
+                        class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium">
+                        ▶️ Play All
+                    </button>
+                    <button id="pause-all-btn" onclick="pauseAllAudio()"
+                        class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium">
+                        ⏸️ Pause All
+                    </button>
+                    <button id="stop-all-btn" onclick="stopAllAudio()"
+                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium">
+                        ⏹️ Stop All
+                    </button>
+                    <div class="flex-1 text-center">
+                        <span id="current-playing" class="text-gray-700 font-medium">Ready to play</span>
+                    </div>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="auto-play-toggle" checked class="form-checkbox">
+                        <span class="text-sm text-gray-700">Auto-play sequence</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="hidden text-center py-8">
+                <div class="inline-flex items-center">
+                    <div class="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mr-3">
+                    </div>
+                    <span class="text-lg font-semibold text-gray-700">Creating your debate...</span>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results-section" class="hidden">
+                <div class="flex items-center mb-6">
+                    <div
+                        class="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mr-4">
+                        <span class="text-2xl">🗣️</span>
+                    </div>
+                    <h2 class="text-3xl font-bold text-gray-800">Debate Results</h2>
+                </div>
+
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200">
+                    <pre id="results" class="whitespace-pre-wrap text-gray-800 font-mono text-sm leading-relaxed"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for audio management
+        let audioElements = [];
+        let currentAudioIndex = 0;
+        let isPlaying = false;
+        let autoPlayEnabled = true;
+
+        async function startDebate() {
+            const loadingEl = document.getElementById('loading');
+            const resultsSection = document.getElementById('results-section');
+            const resultsEl = document.getElementById('results');
+            const audioControlsEl = document.getElementById('audio-controls');
+
+            // Reset audio state
+            audioElements = [];
+            currentAudioIndex = 0;
+            isPlaying = false;
+
+            // Show loading state
+            loadingEl.classList.remove('hidden');
+            resultsSection.classList.add('hidden');
+            audioControlsEl.classList.add('hidden');
+
+            try {
+                const body = {
+                    topic: document.getElementById('topic').value,
+                    language: document.getElementById('language').value,
+                    moderator_name: document.getElementById('moderator_name').value,
+                    moderator_prompt: document.getElementById('moderator_prompt').value,
+                    moderator_intervention: document.getElementById('moderator_intervention').value,
+                    agent1_name: document.getElementById('agent1_name').value,
+                    agent1_llm: document.getElementById('agent1_llm').value,
+                    agent1_position: document.getElementById('agent1_position').value,
+                    agent1_prompt: document.getElementById('agent1_prompt').value,
+                    agent1_tone: document.getElementById('agent1_tone').value,
+                    agent2_name: document.getElementById('agent2_name').value,
+                    agent2_llm: document.getElementById('agent2_llm').value,
+                    agent2_position: document.getElementById('agent2_position').value,
+                    agent2_prompt: document.getElementById('agent2_prompt').value,
+                    agent2_tone: document.getElementById('agent2_tone').value,
+                    turns_per_agent: parseInt(document.getElementById('turns').value),
+                    voice_provider: document.getElementById('voice_provider').value,
+                    min_words: parseInt(document.getElementById('min_words').value),
+                    max_words: parseInt(document.getElementById('max_words').value),
+                    agent1_voice: {
+                        speed: parseFloat(document.getElementById('agent1_speed').value),
+                        pitch: 1.0,
+                        stability: parseFloat(document.getElementById('agent1_stability').value),
+                        similarity_boost: parseFloat(document.getElementById('agent1_similarity').value)
+                    },
+                    agent2_voice: {
+                        speed: parseFloat(document.getElementById('agent2_speed').value),
+                        pitch: 1.0,
+                        stability: parseFloat(document.getElementById('agent2_stability').value),
+                        similarity_boost: parseFloat(document.getElementById('agent2_similarity').value)
+                    },
+                    moderator_voice: {
+                        speed: 1.0,
+                        pitch: 1.0,
+                        stability: 0.5,
+                        similarity_boost: 0.75
+                    }
+                };
+
+                console.log('Sending request:', body);
+
+                const res = await fetch("http://localhost:8000/start-debate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                });
+
+                const responseText = await res.text();
+                console.log('Response status:', res.status);
+                console.log('Response text:', responseText);
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${responseText}`);
+                }
+
+                const data = JSON.parse(responseText);
+                console.log('Parsed data:', data);
+
+                // Hide loading
+                loadingEl.classList.add('hidden');
+
+                // Show results
+                resultsSection.classList.remove('hidden');
+                resultsEl.innerText = data.script?.join("\n\n") || "No script returned";
+
+                // Clear previous audio
+                const existingAudio = document.querySelector('#audio-container');
+                if (existingAudio) {
+                    existingAudio.remove();
+                }
+
+                // Create audio players with auto-play functionality
+                if (data.audio_urls && data.audio_urls.length > 0) {
+                    console.log('Audio URLs:', data.audio_urls);
+
+                    // Show audio controls
+                    audioControlsEl.classList.remove('hidden');
+
+                    await createAudioPlayers(data.audio_urls);
+
+                    // Auto-play if enabled
+                    if (autoPlayEnabled) {
+                        setTimeout(() => {
+                            playAllAudio();
+                        }, 1000); // Small delay to ensure audio is loaded
+                    }
+                } else {
+                    console.warn('No audio URLs returned from backend');
+                    const debugDiv = document.createElement('div');
+                    debugDiv.className = 'mt-4 p-3 bg-yellow-100 border border-yellow-400 rounded';
+                    debugDiv.innerHTML = `
+                        <p class="text-yellow-700 font-medium">⚠️ No audio generated</p>
+                        <p class="text-yellow-600 text-sm">Check console for debugging info and verify API keys.</p>
+                    `;
+                    document.querySelector('#results-section .bg-gradient-to-br').appendChild(debugDiv);
+                }
+
+                // Smooth scroll to results
+                resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                console.error('Full error:', error);
+                loadingEl.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+                resultsEl.innerText = `Error: ${error.message}`;
+            }
+        }
+
+        async function createAudioPlayers(audioUrls) {
+            const audioContainer = document.createElement('div');
+            audioContainer.id = 'audio-container';
+            audioContainer.className = 'mt-6 space-y-3';
+            audioContainer.innerHTML = '<h3 class="text-lg font-bold text-gray-800 mb-3">🎵 Audio Segments</h3>';
+
+            // Reset audio elements array
+            audioElements = [];
+
+            for (let index = 0; index < audioUrls.length; index++) {
+                const url = audioUrls[index];
+                const fullUrl = url.startsWith('http') ? url : `http://localhost:8000${url}`;
+                console.log(`Audio URL ${index + 1}:`, fullUrl);
+
+                const audioDiv = document.createElement('div');
+                audioDiv.className = 'bg-white/70 rounded-lg p-4 border transition-all duration-300';
+                audioDiv.id = `audio-segment-${index}`;
+
+                // Create audio element
+                const audio = document.createElement('audio');
+                audio.preload = 'auto'; // Changed from 'metadata' to 'auto'
+                audio.controls = true;
+                audio.className = 'w-full';
+                audio.src = fullUrl;
+
+                // Store reference with additional metadata
+                audioElements.push({
+                    element: audio,
+                    index: index,
+                    loaded: false,
+                    hasPlayed: false
+                });
+
+                // Add event listeners for auto-play chain
+                audio.addEventListener('loadeddata', () => {
+                    console.log(`Audio ${index + 1} fully loaded, duration: ${audio.duration}s`);
+                    audioElements[index].loaded = true;
+                });
+
+                audio.addEventListener('canplaythrough', () => {
+                    console.log(`Audio ${index + 1} can play through`);
+                    audioElements[index].loaded = true;
+                });
+
+                audio.addEventListener('play', () => {
+                    console.log(`Audio ${index + 1} started playing`);
+                    audioElements[index].hasPlayed = true;
+                    updateCurrentPlaying(`Playing segment ${index + 1}`);
+                    highlightCurrentAudio(index);
+                });
+
+                audio.addEventListener('pause', () => {
+                    console.log(`Audio ${index + 1} paused`);
+                    updateCurrentPlaying(`Paused at segment ${index + 1}`);
+                });
+
+                audio.addEventListener('ended', () => {
+                    console.log(`Audio ${index + 1} ended`);
+                    markAudioFinished(index);
+
+                    // Auto-play next if enabled and not manually paused
+                    if (autoPlayEnabled && isPlaying && index + 1 < audioElements.length) {
+                        console.log(`Auto-playing next segment: ${index + 2}`);
+                        currentAudioIndex = index + 1;
+
+                        // Small delay to ensure proper transition
+                        setTimeout(() => {
+                            playAudioAtIndex(currentAudioIndex);
+                        }, 800); // Increased delay
+                    } else if (index + 1 >= audioElements.length) {
+                        // Reached end of playlist
+                        console.log('Debate completed - all audio finished');
+                        isPlaying = false;
+                        updateCurrentPlaying('Debate completed');
+                        clearAudioHighlights();
+                        updatePlayButtonStates(false);
+                    }
+                });
+
+                audio.addEventListener('error', (e) => {
+                    console.error(`Audio ${index + 1} error:`, e);
+                    console.error('Error details:', {
+                        error: audio.error,
+                        networkState: audio.networkState,
+                        readyState: audio.readyState
+                    });
+                    audioDiv.classList.add('bg-red-50', 'border-red-200');
+                    const errorMsg = document.createElement('p');
+                    errorMsg.className = 'text-red-600 text-xs mt-2';
+                    errorMsg.textContent = `Failed to load audio: ${audio.error?.message || 'Unknown error'}`;
+                    audioDiv.appendChild(errorMsg);
+
+                    // Auto-skip to next audio on error if auto-play is enabled
+                    if (autoPlayEnabled && isPlaying && index + 1 < audioElements.length) {
+                        console.log(`Skipping failed audio ${index + 1}, moving to ${index + 2}`);
+                        setTimeout(() => {
+                            currentAudioIndex = index + 1;
+                            playAudioAtIndex(currentAudioIndex);
+                        }, 1000);
+                    }
+                });
+
+                audioDiv.innerHTML = `
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-sm font-medium text-gray-700">Segment ${index + 1}</p>
+                        <button onclick="playAudioAtIndex(${index})" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">
+                            ▶️ Play This
+                        </button>
+                    </div>
+                `;
+
+                audioDiv.appendChild(audio);
+
+                audioDiv.innerHTML += `
+                    <div class="mt-2 text-xs text-gray-500">
+                        URL: ${fullUrl}
+                    </div>
+                `;
+
+                audioContainer.appendChild(audioDiv);
+            }
+
+            document.querySelector('#results-section .bg-gradient-to-br').appendChild(audioContainer);
+
+            // Wait a bit for audio elements to initialize
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Test first audio accessibility
+            if (audioUrls[0]) {
+                const firstUrl = audioUrls[0].startsWith('http') ? audioUrls[0] : `http://localhost:8000${audioUrls[0]}`;
+                try {
+                    const response = await fetch(firstUrl, { method: 'HEAD' });
+                    console.log(`Audio accessibility test:`, {
+                        url: firstUrl,
+                        status: response.status,
+                        headers: Object.fromEntries(response.headers.entries())
+                    });
+                } catch (error) {
+                    console.error('Audio accessibility test failed:', error);
+                }
+            }
+        }
+
+        function playAllAudio() {
+            console.log('Play all audio called');
+
+            if (audioElements.length === 0) {
+                console.log('No audio elements available');
+                return;
+            }
+
+            isPlaying = true;
+            currentAudioIndex = 0;
+            autoPlayEnabled = document.getElementById('auto-play-toggle')?.checked ?? true;
+
+            console.log('Auto-play enabled:', autoPlayEnabled);
+
+            // Stop all audio first
+            stopAllAudio();
+
+            // Reset playing state
+            isPlaying = true;
+
+            // Start from beginning with a delay to ensure everything is ready
+            setTimeout(() => {
+                playAudioAtIndex(0);
+            }, 500);
+
+            updatePlayButtonStates(true);
+        }
+
+        function playAudioAtIndex(index) {
+            console.log(`Attempting to play audio at index ${index}`);
+
+            if (index < 0 || index >= audioElements.length) {
+                console.error(`Invalid audio index: ${index}`);
+                return;
+            }
+
+            // Pause all other audio
+            audioElements.forEach((audioObj, i) => {
+                if (i !== index && !audioObj.element.paused) {
+                    console.log(`Pausing audio ${i + 1}`);
+                    audioObj.element.pause();
+                }
+            });
+
+            // Play the selected audio
+            const audioObj = audioElements[index];
+            const audio = audioObj.element;
+
+            // Reset to beginning
+            audio.currentTime = 0;
+
+            console.log(`Playing audio ${index + 1}, ready state: ${audio.readyState}`);
+
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log(`Successfully started playing audio ${index + 1}`);
+                }).catch(error => {
+                    console.error(`Error playing audio ${index + 1}:`, error);
+                    updateCurrentPlaying(`Error playing segment ${index + 1}: ${error.message}`);
+
+                    // Try to continue to next audio if auto-play is enabled
+                    if (autoPlayEnabled && isPlaying && index + 1 < audioElements.length) {
+                        console.log(`Attempting to skip to next audio due to play error`);
+                        setTimeout(() => {
+                            currentAudioIndex = index + 1;
+                            playAudioAtIndex(currentAudioIndex);
+                        }, 1000);
+                    }
+                });
+            }
+        }
+
+        function pauseAllAudio() {
+            console.log('Pausing all audio');
+            isPlaying = false;
+            audioElements.forEach((audioObj, index) => {
+                if (!audioObj.element.paused) {
+                    console.log(`Pausing audio ${index + 1}`);
+                    audioObj.element.pause();
+                }
+            });
+            updateCurrentPlaying('Paused');
+            updatePlayButtonStates(false);
+        }
+
+        function stopAllAudio() {
+            console.log('Stopping all audio');
+            isPlaying = false;
+            audioElements.forEach((audioObj, index) => {
+                audioObj.element.pause();
+                audioObj.element.currentTime = 0;
+                audioObj.hasPlayed = false;
+            });
+            currentAudioIndex = 0;
+            updateCurrentPlaying('Stopped');
+            clearAudioHighlights();
+            updatePlayButtonStates(false);
+        }
+
+        function updateCurrentPlaying(message) {
+            const currentPlayingEl = document.getElementById('current-playing');
+            if (currentPlayingEl) {
+                currentPlayingEl.textContent = message;
+            }
+            console.log('Status update:', message);
+        }
+
+        function highlightCurrentAudio(index) {
+            clearAudioHighlights();
+            const audioSegment = document.getElementById(`audio-segment-${index}`);
+            if (audioSegment) {
+                audioSegment.classList.add('now-playing');
+            }
+        }
+
+        function markAudioFinished(index) {
+            const audioSegment = document.getElementById(`audio-segment-${index}`);
+            if (audioSegment) {
+                audioSegment.classList.remove('now-playing');
+                audioSegment.classList.add('audio-finished');
+            }
+        }
+
+        function clearAudioHighlights() {
+            document.querySelectorAll('[id^="audio-segment-"]').forEach(segment => {
+                segment.classList.remove('now-playing');
+            });
+        }
+
+        function updatePlayButtonStates(playing) {
+            const playBtn = document.getElementById('play-all-btn');
+            const pauseBtn = document.getElementById('pause-all-btn');
+
+            if (playBtn && pauseBtn) {
+                if (playing) {
+                    playBtn.classList.add('opacity-50');
+                    pauseBtn.classList.remove('opacity-50');
+                } else {
+                    playBtn.classList.remove('opacity-50');
+                    pauseBtn.classList.add('opacity-50');
+                }
+            }
+        }
+
+        // Update auto-play setting when checkbox changes
+        document.addEventListener('DOMContentLoaded', function () {
+            const autoPlayToggle = document.getElementById('auto-play-toggle');
+            if (autoPlayToggle) {
+                autoPlayToggle.addEventListener('change', function () {
+                    autoPlayEnabled = this.checked;
+                    console.log('Auto-play enabled changed to:', autoPlayEnabled);
+                });
+            }
+
+            // Add hover effects to input fields
+            const inputs = document.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function () {
+                    this.classList.add('shadow-lg');
+                });
+                input.addEventListener('blur', function () {
+                    this.classList.remove('shadow-lg');
+                });
+            });
+        });
+
+        // Handle browser autoplay restrictions
+        document.addEventListener('click', function () {
+            console.log('User interaction detected - autoplay should work');
+        }, { once: true });
     </script>
 </body>
 
